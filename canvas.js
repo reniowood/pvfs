@@ -1,10 +1,16 @@
-function Canvas() {
+function getCanvas(boxWidth, boxHeight) {
+  var canvas = document.getElementById('box');
+  var context = canvas.getContext('2d');
+  var ratio = {
+    x: canvas.width / boxWidth,
+    y: canvas.height/ boxHeight
+  };
+
   return {
-    context: document.getElementById('box').getContext('2d'),
     drawCircle: function (p, r) {
-      this.context.beginPath();
-      this.context.arc(p.x, p.y, r, 0, Math.PI * 2);
-      this.context.stroke();
+      context.beginPath();
+      context.arc(p.x * ratio.x, p.y * ratio.y, r, 0, Math.PI * 2);
+      context.stroke();
     }
   }
 }
