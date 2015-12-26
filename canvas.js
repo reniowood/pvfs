@@ -8,9 +8,11 @@ function getCanvas(boxWidth, boxHeight) {
 
   return {
     drawCircle: function (p, r) {
+      context.fillStyle = '#00f';
       context.beginPath();
       context.arc(p.x * ratio.x, p.y * ratio.y, r, 0, Math.PI * 2);
-      context.stroke();
+      context.closePath();
+      context.fill();
     },
     clear: function () {
       context.clearRect(0, 0, canvas.width, canvas.height);
