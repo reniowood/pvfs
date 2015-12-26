@@ -1,16 +1,16 @@
 function getSimulation() {
   var canvas;
-  var fps = 60;
+  var fps = 30;
 
   var width = 4;
   var height = 3;
 
   var dt = 1 / 100;
-  var restDensity = 400;
-  var k = 0.08;
+  var restDensity = 200;
+  var k = 0.1;
   var kNear = 0.1;
-  var beta = 2;
-  var omega = 1;
+  var beta = 1;
+  var omega = 0.5;
   var h = 0.1;
   var gravity = new Vector2(0, 9.8);
 
@@ -18,11 +18,9 @@ function getSimulation() {
   var particles = new Hash2d(width, height, 2 * h);
   var particleNumber = 0;
 
-  function createParticles(number) {
-    var x, y;
-
-    for (var i=width * 1/5; i<width * 2/5; i+=h/3) {
-      for (var j=height * 1/6; j<height * 5/5; j+=h/2) {
+  function createParticles() {
+    for (var i=width * 1/5; i<width * 4/5; i+=h*0.7) {
+      for (var j=height * 1/6; j<height * 5/5; j+=h*0.7) {
         particles.put(i, j, new Particle(new Vector2(i, j)));
         particleNumber += 1;
       }
@@ -284,7 +282,7 @@ function getSimulation() {
     init: function () {
       canvas = getCanvas(width, height);
 
-      createParticles(1);
+      createParticles();
     },
     start: function () {
       simulation = setInterval(function () {
