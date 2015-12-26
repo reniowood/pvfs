@@ -1,37 +1,32 @@
 function getSimulation() {
   var canvas;
-  var fps = 30;
+  var fps = 60;
 
   var width = 4;
   var height = 3;
 
-  var dt = 1 / 30;
-  var restDensity = 10;
-  var k = 0.004;
-  var kNear = 0.01;
-  var kSpring = 0.3;
-  var alpha = 0.3;
-  var beta = 0;
-  var gamma = 0;
-  var omega = 0;
+  var dt = 1 / 100;
+  var restDensity = 400;
+  var k = 0.08;
+  var kNear = 0.1;
+  var beta = 2;
+  var omega = 1;
   var h = 0.1;
   var gravity = new Vector2(0, 9.8);
 
   var simulation;
   var particles = new Hash2d(width, height, 2 * h);
-  var particlenumber = 0;
+  var particleNumber = 0;
 
   function createParticles(number) {
     var x, y;
 
-    for (var i=0; i<number; i+=1) {
-      x = Math.random() * width;
-      y = Math.random() * height;
-
-      particles.put(x, y, new Particle(new Vector2(x, y)));
+    for (var i=width * 1/5; i<width * 2/5; i+=h/3) {
+      for (var j=height * 1/6; j<height * 5/5; j+=h/2) {
+        particles.put(i, j, new Particle(new Vector2(i, j)));
+        particleNumber += 1;
+      }
     }
-
-    particleNumber = number;
   }
 
   function drawParticles() {
@@ -39,7 +34,7 @@ function getSimulation() {
 
     canvas.clear();
     for (var i=0; i<particleNumber; i+=1) {
-      canvas.drawCircle(allParticles[i].p, 10);
+      canvas.drawCircle(allParticles[i].p, 2);
     }
   }
 
@@ -53,7 +48,9 @@ function getSimulation() {
     var allParticles = particles.all();
 
     for (var i=0; i<particleNumber; i+=1) {
-      allParticles[i].v = allParticles[i].v.add(allParticles[i].v.add(gravity.mul(dt)));
+      particle = allParticles[i];
+
+      particle.v = particle.v.add(gravity.mul(dt));
     }
 	}
 
@@ -80,11 +77,12 @@ function getSimulation() {
       neighbors = particles.get(particle.p.x, particle.p.y, h);
       neighborsNumber = neighbors.length;
 
+      particle.relaxedP = new Vector2();
       for (var j=0; j<neighborsNumber; j+=1) {
         neighbor = neighbors[j];
 
-        r = particle.p.sub(neighbor.p);
-        q = r.div(h);
+        r = neighbor.p.sub(particle.p);
+        q = r.magnitude() / h;
 
         if (q < 1) {
           u = particle.v.sub(neighbor.v).dot(r.normalize());
@@ -149,8 +147,8 @@ function getSimulation() {
       for (var j=0; j<neighborsNumber; j+=1) {
         neighbor = neighbors[j];
 
-        r = particle.p.sub(neighbor.p);
-        q = r.div(h);
+        r = neighbor.p.sub(particle.p);
+        q = r.magnitude() / h;
 
         if (q < 1) {
           ;
@@ -184,12 +182,12 @@ function getSimulation() {
       12.   P^near ← k^near * ρ^near
       13.   dx ← 0
       14.   foreach particle j ∈ neighbors( i )
-      15.   q ← r_ij / h
-      16.   if q < 1
-      17.     // apply displacements
-      18.     D ← ∆t^2 * (P * (1−q) + P^near * (1−q)^2) * rˆ_ij
-      19.     x_j ← x_j + D/2
-      20.     dx ← dx − D/2
+      15.       q ← r_ij / h
+      16.       if q < 1
+      17.           // apply displacements
+      18.           D ← ∆t^2 * (P * (1−q) + P^near * (1−q)^2) * rˆ_ij
+      19.           x_j ← x_j + D/2
+      20.           dx ← dx − D/2
       21.   x_i ← x_i +dx
     */
 
@@ -209,12 +207,14 @@ function getSimulation() {
       nearDensity = 0;
 
       for (var j=0; j<neighborsNumber; j+=1) {
-        r = particle.p.sub(neighbor.p);
-        q = r.div(h);
+        neighbor = neighbors[j];
+
+        r = neighbor.p.sub(particle.p);
+        q = r.magnitude() / h;
 
         if (q < 1) {
-          density += (1 - q) * (1 - q);
-          nearDensity += (1 - q) * (1 - q) * (1 - q);
+          density += (1 - q) * (1 - q) * 20 / (2 * Math.PI * h * h);
+          nearDensity += (1 - q) * (1 - q) * (1 - q) * 30 / (2 * Math.PI * h * h);
         }
       }
 
@@ -223,11 +223,14 @@ function getSimulation() {
       dx = new Vector2();
 
       for (var j=0; j<neighborsNumber; j+=1) {
-        r = particle.p.sub(neighbor.p);
-        q = r.div(h);
+        neighbor = neighbors[j];
+
+        r = neighbor.p.sub(particle.p);
+        q = r.magnitude() / h;
 
         if (q < 1) {
           D = r.normalize().mul(dt * dt * (pressure * (1 - q) + nearPressure * (1 - q) * (1 - q)));
+
           neighbor.p = neighbor.p.add(D.div(2));
           dx = dx.sub(D.div(2));
         }
@@ -281,7 +284,7 @@ function getSimulation() {
     init: function () {
       canvas = getCanvas(width, height);
 
-      createParticles(1000);
+      createParticles(1);
     },
     start: function () {
       simulation = setInterval(function () {
@@ -318,7 +321,7 @@ function getSimulation() {
         doubleDensityRelaxation();
         resolveCollisions();
         recalculateVelocity();
-      }, 1000 / this.fps);
+      }, 1000 / fps);
     },
     pause: function () {
       simulation();

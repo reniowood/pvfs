@@ -67,9 +67,11 @@ Hash2d.prototype.get = function (x, y, h) {
 
   var size = this.hash.length;
   var neighbors = [];
+  var distance;
 
   for (var i=0; i<size; i+=1) {
-    if (this.hash[i].p.sub(new Vector2(x, y)).magnitude() < h) {
+    distance = this.hash[i].p.sub(new Vector2(x, y)).magnitude();
+    if (distance > 0 && distance < h) {
       neighbors.push(this.hash[i]);
     }
   }
