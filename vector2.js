@@ -12,31 +12,19 @@ Vector2.prototype.magSquare = function () {
 };
 
 Vector2.prototype.add = function (v) {
-  this.x += v.x;
-  this.y += v.y;
-
-  return this;
+  return new Vector2(this.x + v.x, this.y + v.y);
 };
 
 Vector2.prototype.sub = function (v) {
-  this.x -= v.x;
-  this.y -= v.y;
-
-  return this;
+  return new Vector2(this.x - v.x, this.y - v.y);
 };
 
 Vector2.prototype.mul = function (c) {
-  this.x *= c;
-  this.y *= c;
-
-  return this;
+  return new Vector2(this.x * v.x, this.y * v.y);
 };
 
 Vector2.prototype.div = function (c) {
-  this.x /= c;
-  this.y /= c;
-
-  return this;
+  return new Vector2(this.x / c, this.y / c);
 };
 
 Vector2.prototype.dot = function (v) {
