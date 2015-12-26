@@ -11,6 +11,9 @@ function getCanvas(boxWidth, boxHeight) {
       context.beginPath();
       context.arc(p.x * ratio.x, p.y * ratio.y, r, 0, Math.PI * 2);
       context.stroke();
+    },
+    clear: function () {
+      context.clearRect(0, 0, canvas.width, canvas.height);
     }
   }
 }

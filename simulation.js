@@ -5,17 +5,20 @@ function getSimulation() {
   var width = 4;
   var height = 3;
 
-  var dt = 1;
+  var dt = 1 / 30;
   var restDensity = 10;
   var k = 0.004;
   var kNear = 0.01;
   var kSpring = 0.3;
   var alpha = 0.3;
+  var beta = 0;
   var gamma = 0;
-  var range = 0.1;
+  var omega = 0;
+  var h = 0.1;
+  var gravity = new Vector2(0, 9.8);
 
   var simulation;
-  var particles = new Hash2d(width, height, range);
+  var particles = new Hash2d(width, height, 2 * h);
   var particlenumber = 0;
 
   function createParticles(number) {
@@ -34,6 +37,7 @@ function getSimulation() {
   function drawParticles() {
     var allParticles = particles.all();
 
+    canvas.clear();
     for (var i=0; i<particleNumber; i+=1) {
       canvas.drawCircle(allParticles[i].p, 10);
     }
@@ -45,6 +49,12 @@ function getSimulation() {
       2.    // apply gravity
       3.    v_i ← v_i + ∆t * g
     */
+
+    var allParticles = particles.all();
+
+    for (var i=0; i<particleNumber; i+=1) {
+      allParticles[i].v = allParticles[i].v.add(allParticles[i].v.add(gravity.mul(dt)));
+    }
 	}
 
   function applyViscosity() {
@@ -60,6 +70,34 @@ function getSimulation() {
       9.        v_i ← v_i − I / 2
       10.       v_j ← v_j + I / 2
     */
+
+    var allParticles = particles.all();
+    var particle, neighbors, neighborsNumber;
+    var r, q, u, I;
+
+    for (var i=0; i<particleNumber; i+=1) {
+      particle = allParticles[i];
+      neighbors = particles.get(particle.p.x, particle.p.y, h);
+      neighborsNumber = neighbors.length;
+
+      for (var j=0; j<neighborsNumber; j+=1) {
+        neighbor = neighbors[j];
+
+        r = particle.p.sub(neighbor.p);
+        q = r.div(h);
+
+        if (q < 1) {
+          u = particle.v.sub(neighbor.v).dot(r.normalize());
+
+          if (u > 0) {
+            I = r.normalize().mul(dt * (1 - q) * (omega * u + beta * u * u));
+
+            particle.v = particle.v.sub(I.div(2));
+            neighbor.v = neighbor.v.add(I.div(2));
+          }
+        }
+      }
+    }
 	}
 
   function advancePosition() {
@@ -70,6 +108,15 @@ function getSimulation() {
       9.    // advance to predicted position
       10.   x_i ← x_i + ∆t * v_i
     */
+
+    var allParticles = particles.all();
+
+    for (var i=0; i<particleNumber; i+=1) {
+      particle = allParticles[i];
+
+      particle.prevP = new Vector2(particle.p.x, particle.p.y);
+      particle.p = particle.p.add(particle.v.mul(dt));
+    }
 	}
 
   function adjustSprings() {
@@ -89,6 +136,27 @@ function getSimulation() {
       13.   if L_ij > h
       14.     remove spring i j
     */
+
+    var allParticles = particles.all();
+    var particle, neighbors, neighborsNumber;
+    var r, q, d;
+
+    for (var i=0; i<particleNumber; i+=1) {
+      particle = allParticles[i];
+      neighbors = particles.get(particle.p.x, particle.p.y,h);
+      neighborsNumber = neighbors.length;
+
+      for (var j=0; j<neighborsNumber; j+=1) {
+        neighbor = neighbors[j];
+
+        r = particle.p.sub(neighbor.p);
+        q = r.div(h);
+
+        if (q < 1) {
+          ;
+        }
+      }
+    }
 	}
 
   function applySpringDisplacements() {
@@ -109,8 +177,8 @@ function getSimulation() {
       5.    foreach particle j ∈ neighbors( i )
       6.        q ← r_ij / h
       7.        if q < 1
-      8.        ρ ← ρ + (1−q)^2
-      9.        ρ^near ← ρ^near + (1−q)^3
+      8.            ρ ← ρ + (1−q)^2
+      9.            ρ^near ← ρ^near + (1−q)^3
       10.   // compute pressure and near-pressure
       11.   P ← k(ρ−ρ0)
       12.   P^near ← k^near * ρ^near
@@ -124,17 +192,89 @@ function getSimulation() {
       20.     dx ← dx − D/2
       21.   x_i ← x_i +dx
     */
+
+    var allParticles = particles.all();
+    var particle, neighbors, neighborsNumber;
+    var density, nearDensity;
+    var r, q;
+    var pressure, nearPressure, dx;
+    var D;
+
+    for (var i=0; i<particleNumber; i+=1) {
+      particle = allParticles[i];
+      neighbors = particles.get(particle.p.x, particle.p.y, h);
+      neighborsNumber = neighbors.length;
+
+      density = 0;
+      nearDensity = 0;
+
+      for (var j=0; j<neighborsNumber; j+=1) {
+        r = particle.p.sub(neighbor.p);
+        q = r.div(h);
+
+        if (q < 1) {
+          density += (1 - q) * (1 - q);
+          nearDensity += (1 - q) * (1 - q) * (1 - q);
+        }
+      }
+
+      pressure = k * (density - restDensity);
+      nearPressure = kNear * nearDensity;
+      dx = new Vector2();
+
+      for (var j=0; j<neighborsNumber; j+=1) {
+        r = particle.p.sub(neighbor.p);
+        q = r.div(h);
+
+        if (q < 1) {
+          D = r.normalize().mul(dt * dt * (pressure * (1 - q) + nearPressure * (1 - q) * (1 - q)));
+          neighbor.p = neighbor.p.add(D.div(2));
+          dx = dx.sub(D.div(2));
+        }
+      }
+
+      particle.p = particle.p.add(dx);
+    }
 	}
 
   function resolveCollisions() {
+    var allParticles = particles.all();
+
+    for (var i=0; i<particleNumber; i+=1) {
+      particle = allParticles[i];
+
+      if (particle.p.x < 0) {
+        particle.p.x = 0;
+      }
+
+      if (particle.p.y < 0) {
+        particle.p.y = 0;
+      }
+
+      if (particle.p.x > width) {
+        particle.p.x = width;
+      }
+
+      if (particle.p.y > height) {
+        particle.p.y = height;
+      }
+    }
 	}
 
   function recalculateVelocity() {
     /*
       18. foreach particle i
       19.   // use previous position to compute next velocity
-      20.   vi ← (x_i − x^prev_i)/∆t
+      20.   v_i ← (x_i − x^prev_i) / ∆t
     */
+
+    var allParticles = particles.all();
+
+    for (var i=0; i<particleNumber; i+=1) {
+      particle = allParticles[i];
+
+      particle.v = particle.p.sub(particle.prevP).div(dt);
+    }
 	}
 
   return {
@@ -168,6 +308,8 @@ function getSimulation() {
           20.   vi ← (x_i − x^prev_i)/∆t
         */
 
+        drawParticles();
+
         applyGravity();
         applyViscosity();
         advancePosition();
@@ -176,8 +318,6 @@ function getSimulation() {
         doubleDensityRelaxation();
         resolveCollisions();
         recalculateVelocity();
-
-        drawParticles();
       }, 1000 / this.fps);
     },
     pause: function () {

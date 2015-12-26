@@ -20,7 +20,7 @@ Vector2.prototype.sub = function (v) {
 };
 
 Vector2.prototype.mul = function (c) {
-  return new Vector2(this.x * v.x, this.y * v.y);
+  return new Vector2(this.x * c, this.y * c);
 };
 
 Vector2.prototype.div = function (c) {
@@ -31,6 +31,6 @@ Vector2.prototype.dot = function (v) {
   return this.x * v.x + this.y * v.y;
 };
 
-Vector2.prototype.normVector = function () {
+Vector2.prototype.normalize = function () {
   return this.div(this.magnitude());
 };
