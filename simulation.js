@@ -6,34 +6,36 @@ function getSimulation() {
   var height = 3;
 
   var dt = 1 / 100;
-  var restDensity = 200;
+  var restDensity = 900;
   var k = 0.1;
-  var kNear = 0.1;
+  var kNear = 0.05;
   var beta = 1;
   var omega = 0.5;
   var h = 0.1;
   var gravity = new Vector2(0, 9.8);
 
   var simulation;
-  var particles = new Hash2d(width, height, 2 * h);
+  var spatialHash = getSpatialHash(h);
   var particleNumber = 0;
 
   function createParticles() {
-    for (var i=width * 1/5; i<width * 4/5; i+=h*0.7) {
-      for (var j=height * 1/6; j<height * 5/5; j+=h*0.7) {
-        particles.put(i, j, new Particle(new Vector2(i, j)));
+    var particles = [];
+
+    for (var i=width * 0/5; i<width * 2/5; i+=h/2) {
+      for (var j=height * 1/6; j<height * 5/5; j+=h/2) {
+        particles.push(new Particle(new Vector2(i, j)));
         particleNumber += 1;
       }
     }
+
+    spatialHash.init(particles);
   }
 
   function drawParticles() {
-    var allParticles = particles.all();
-
     canvas.clear();
-    for (var i=0; i<particleNumber; i+=1) {
-      canvas.drawCircle(allParticles[i].p, 2);
-    }
+    spatialHash.traverse(function (particle) {
+      canvas.drawCircle(particle.p, 2);
+    });
   }
 
   function applyGravity() {
@@ -43,13 +45,9 @@ function getSimulation() {
       3.    v_i ← v_i + ∆t * g
     */
 
-    var allParticles = particles.all();
-
-    for (var i=0; i<particleNumber; i+=1) {
-      particle = allParticles[i];
-
+    spatialHash.traverse(function (particle) {
       particle.v = particle.v.add(gravity.mul(dt));
-    }
+    });
 	}
 
   function applyViscosity() {
@@ -66,19 +64,10 @@ function getSimulation() {
       10.       v_j ← v_j + I / 2
     */
 
-    var allParticles = particles.all();
-    var particle, neighbors, neighborsNumber;
-    var r, q, u, I;
+    spatialHash.traverse(function (particle) {
+      var r, q, u, I;
 
-    for (var i=0; i<particleNumber; i+=1) {
-      particle = allParticles[i];
-      neighbors = particles.get(particle.p.x, particle.p.y, h);
-      neighborsNumber = neighbors.length;
-
-      particle.relaxedP = new Vector2();
-      for (var j=0; j<neighborsNumber; j+=1) {
-        neighbor = neighbors[j];
-
+      spatialHash.getNeighbors(particle, h).forEach(function (neighbor) {
         r = neighbor.p.sub(particle.p);
         q = r.magnitude() / h;
 
@@ -92,8 +81,8 @@ function getSimulation() {
             neighbor.v = neighbor.v.add(I.div(2));
           }
         }
-      }
-    }
+      });
+    });
 	}
 
   function advancePosition() {
@@ -105,14 +94,12 @@ function getSimulation() {
       10.   x_i ← x_i + ∆t * v_i
     */
 
-    var allParticles = particles.all();
-
-    for (var i=0; i<particleNumber; i+=1) {
-      particle = allParticles[i];
-
+    spatialHash.traverse(function (particle) {
       particle.prevP = new Vector2(particle.p.x, particle.p.y);
       particle.p = particle.p.add(particle.v.mul(dt));
-    }
+    });
+
+    spatialHash.rehash();
 	}
 
   function adjustSprings() {
@@ -133,26 +120,18 @@ function getSimulation() {
       14.     remove spring i j
     */
 
-    var allParticles = particles.all();
-    var particle, neighbors, neighborsNumber;
-    var r, q, d;
+    spatialHash.traverse(function (particle) {
+      var r, q;
 
-    for (var i=0; i<particleNumber; i+=1) {
-      particle = allParticles[i];
-      neighbors = particles.get(particle.p.x, particle.p.y,h);
-      neighborsNumber = neighbors.length;
-
-      for (var j=0; j<neighborsNumber; j+=1) {
-        neighbor = neighbors[j];
-
+      spatialHash.getNeighbors(particle, h).forEach(function (neighbor) {
         r = neighbor.p.sub(particle.p);
         q = r.magnitude() / h;
 
         if (q < 1) {
           ;
         }
-      }
-    }
+      });
+    });
 	}
 
   function applySpringDisplacements() {
@@ -189,24 +168,17 @@ function getSimulation() {
       21.   x_i ← x_i +dx
     */
 
-    var allParticles = particles.all();
-    var particle, neighbors, neighborsNumber;
-    var density, nearDensity;
-    var r, q;
-    var pressure, nearPressure, dx;
-    var D;
-
-    for (var i=0; i<particleNumber; i+=1) {
-      particle = allParticles[i];
-      neighbors = particles.get(particle.p.x, particle.p.y, h);
-      neighborsNumber = neighbors.length;
+    spatialHash.traverse(function (particle) {
+      var neighbors = spatialHash.getNeighbors(particle, h);
+      var density, nearDensity;
+      var r, q;
+      var pressure, nearPressure, dx;
+      var D;
 
       density = 0;
       nearDensity = 0;
 
-      for (var j=0; j<neighborsNumber; j+=1) {
-        neighbor = neighbors[j];
-
+      neighbors.forEach(function (neighbor) {
         r = neighbor.p.sub(particle.p);
         q = r.magnitude() / h;
 
@@ -214,15 +186,13 @@ function getSimulation() {
           density += (1 - q) * (1 - q) * 20 / (2 * Math.PI * h * h);
           nearDensity += (1 - q) * (1 - q) * (1 - q) * 30 / (2 * Math.PI * h * h);
         }
-      }
+      });
 
       pressure = k * (density - restDensity);
       nearPressure = kNear * nearDensity;
       dx = new Vector2();
 
-      for (var j=0; j<neighborsNumber; j+=1) {
-        neighbor = neighbors[j];
-
+      neighbors.forEach(function (neighbor) {
         r = neighbor.p.sub(particle.p);
         q = r.magnitude() / h;
 
@@ -232,18 +202,14 @@ function getSimulation() {
           neighbor.p = neighbor.p.add(D.div(2));
           dx = dx.sub(D.div(2));
         }
-      }
+      });
 
       particle.p = particle.p.add(dx);
-    }
+    });
 	}
 
   function resolveCollisions() {
-    var allParticles = particles.all();
-
-    for (var i=0; i<particleNumber; i+=1) {
-      particle = allParticles[i];
-
+    spatialHash.traverse(function (particle) {
       if (particle.p.x < 0) {
         particle.p.x = 0;
       }
@@ -259,7 +225,7 @@ function getSimulation() {
       if (particle.p.y > height) {
         particle.p.y = height;
       }
-    }
+    });
 	}
 
   function recalculateVelocity() {
@@ -269,13 +235,9 @@ function getSimulation() {
       20.   v_i ← (x_i − x^prev_i) / ∆t
     */
 
-    var allParticles = particles.all();
-
-    for (var i=0; i<particleNumber; i+=1) {
-      particle = allParticles[i];
-
+    spatialHash.traverse(function (particle) {
       particle.v = particle.p.sub(particle.prevP).div(dt);
-    }
+    });
 	}
 
   return {

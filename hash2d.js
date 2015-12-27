@@ -1,85 +1,99 @@
-function Hash2d(width, height, cellSize) {
-
-/*
-  var widthCell = width/cellSize + 2;
-  var heightCell = height/cellSize + 2;
-  this.hash = [];
-  for (var i=0; i<widthCell; i+=1) {
-    this.hash.push([]);
-    for (var j=0; j<heightCell; j+=1) {
-      this.hash[i].push([]);
-    }
-  }
-  */
-
-  this.hash = [];
-  this.cellSize = cellSize;
-}
-
-Hash2d.prototype.clear = function () {
-  /*
-  var widthCell = this.hash.length;
-  var heightCell = this.hash[0] !== undefined ? 0 : this.hash[0].length;
-
-  for (var i=0; i<widthCell; i+=1) {
-    for (var j=0; j<heightCell; j+=1) {
-      this.hash[i][j] = [];
-    }
-  }
-  */
-
-  this.hash = [];
-};
-
-Hash2d.prototype.put = function (x, y, obj) {
-  /*
-  var widthCell = this.hash.length,
-      heightCell = this.hash[0] !== undefined ? 0 : this.hash[0].length;
-  var cellX = parseInt(x / this.cellSize),
-      cellY = parseInt(y / this.cellSize);
-
-  for (var i=0; i<widthCell; i+=1) {
-    for (var j=0; j<heightCell; j+=1) {
-      var index = this.hash[i][j].indexOf(obj);
-      if (index !== -1) {
-        if (cellX !== i || cellY !== j) {
-          this.hash[cellX][cellY].push(this.hash[i][j].splice(index, 1));
-        }
-
-        return;
+function getSpatialHash(cellSize) {
+  var hashTable = {
+    table: {},
+    push: function (hash, particle) {
+      if (this.table.hasOwnProperty(hash)) {
+        this.table[hash].push(particle);
+      } else {
+        this.table[hash] = [particle];
       }
+    },
+    get: function (hash) {
+      return this.table[hash];
+    },
+    traverse: function (callback) {
+      for (var hash in this.table) {
+        if (this.table.hasOwnProperty(hash)) {
+          this.table[hash].forEach(function (particle) {
+            callback(particle);
+          });
+        }
+      }
+    },
+    rehash: function () {
+      var particles = [];
+
+      this.traverse(function (particle) {
+        particles.push(particle);
+      });
+
+      this.table = {};
+
+      var self = this;
+      particles.forEach(function (particle) {
+        self.push(getHash(getCellIndex(particle.p)), particle);
+      });
     }
+  };
+
+  var p1 = 73856093,
+      p2 = 19349663,
+      M = 0;
+  var x_min = 12345678, y_min = 12345678;
+
+  function createHash(particles) {
+    M = particles.length;
+
+    particles.forEach(function (particle) {
+      if (particle.p.x < x_min) {
+        x_min = particle.p.x;
+      }
+      if (particle.p.y < y_min) {
+        y_min = particle.p.y;
+      }
+    });
+
+    particles.forEach(function (particle) {
+      hashTable.push(getHash(getCellIndex(particle.p)), particle);
+    });
   }
 
-  this.hash[cellX][cellY].push(obj);
-  */
-
-  this.hash.push(obj);
-};
-
-Hash2d.prototype.get = function (x, y, h) {
-  /*
-  var cellX = parseInt(x / this.cellSize),
-      cellY = parseInt(y / this.cellSize);
-
-  return this.hash[cellX][cellY];
-  */
-
-  var size = this.hash.length;
-  var neighbors = [];
-  var distance;
-
-  for (var i=0; i<size; i+=1) {
-    distance = this.hash[i].p.sub(new Vector2(x, y)).magnitude();
-    if (distance > 0 && distance < h) {
-      neighbors.push(this.hash[i]);
-    }
+  function getCellIndex(p) {
+    return new Vector2(Math.floor((p.x - x_min) / cellSize), Math.floor((p.y - y_min) / cellSize));
   }
 
-  return neighbors;
-};
+  function getHash(i) {
+    return (i.x * p1 ^ i.y * p2) % M;
+  }
 
-Hash2d.prototype.all = function () {
-  // return [].concat.apply([], [].concat.apply([], this.hash));
-  return this.hash;
-};
+  return {
+    init: function (particles) {
+      createHash(particles);
+    },
+    getNeighbors: function (particle, h) {
+      var neighbors = [];
+      var cellIndex = getCellIndex(particle.p);
+      var candidates = [];
+
+      for (var i=-1; i<=1; i+=1) {
+        for (var j=-1; j<=1; j+=1) {
+          candidates = hashTable.get(getHash(cellIndex.add(new Vector2(i, j))));
+
+          if (candidates !== undefined) {
+            neighbors = neighbors.concat(candidates.filter(function (candidate) {
+              return particle.p.sub(candidate.p).magnitude() < h;
+            }));
+          }
+        }
+      }
+
+      return neighbors;
+    },
+    traverse: function (callback) {
+      hashTable.traverse(callback);
+    },
+    rehash: function () {
+      hashTable.rehash();
+    }
+  };
+}
