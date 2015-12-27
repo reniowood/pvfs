@@ -9,13 +9,17 @@ function getSimulation() {
   var restDensity = 900;
   var k = 0.1;
   var kNear = 0.05;
+  var kSpring = 1;
+  var alpha = 1;
   var beta = 1;
   var omega = 0.5;
+  var gamma = 0.1;
   var h = 0.1;
   var gravity = new Vector2(0, 9.8);
 
   var simulation;
   var spatialHash = getSpatialHash(h);
+  var springs = [];
   var particleNumber = 0;
 
   function createParticles() {
@@ -122,15 +126,35 @@ function getSimulation() {
 
     spatialHash.traverse(function (particle) {
       var r, q;
+      var d;
 
       spatialHash.getNeighbors(particle, h).forEach(function (neighbor) {
         r = neighbor.p.sub(particle.p);
         q = r.magnitude() / h;
 
         if (q < 1) {
-          ;
+          if (particle.spring === undefined) {
+            particle.spring = new Spring(particle, neighbor, h, springs);
+          }
+
+          spring = particle.spring;
+          d = gamma * spring.length;
+          if (r.magnitude() > spring.restLength + d) {
+            spring.length += dt * alpha * (r.magnitude() - spring.restLength - d);
+          } else if (r.magnitude() < spring.restLength - d) {
+            spring.length -= dt * alpha * (spring.restLength - d - r.magnitude());
+          }
         }
       });
+    });
+
+    springs.forEach(function (spring, index, springs) {
+      if (spring.length > h) {
+        spring.p1.spring = undefined;
+        spring.p2.spring = undefined;
+
+        springs.splice(index, 1);
+      }
     });
 	}
 
@@ -141,6 +165,14 @@ function getSimulation() {
       3.  x_i ← x_i − D/2
       4.  x_j ← x_j + D/2
     */
+
+    springs.forEach(function (spring, index, springs) {
+      var r = spring.p2.p.sub(spring.p1.p);
+      var D = r.normalize().mul(dt * dt * kSpring * (1 - spring.length / h) * (spring.length - r.magnitude()));
+
+      spring.p1.p = spring.p1.p.sub(D.div(2));
+      spring.p2.p = spring.p2.p.add(D.div(2));
+    });
 	}
 
   function doubleDensityRelaxation() {
